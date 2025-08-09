@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+apps/*/node_modules/
+
+# builds
+apps/api/dist/
+apps/web/.next/
+.next/
+
+# env & local
+.env
+.env.*
+apps/api/.env
+apps/web/.env.local
+!.env.example
+
+# misc
+.DS_Store
+npm-debug.log*
