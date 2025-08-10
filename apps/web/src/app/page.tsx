@@ -1,35 +1,36 @@
+// apps/web/src/app/page.tsx
 // The page component is async so we can fetch data server-side
-import DeleteButton from "./DeleteButton";
-import RunForm from "./RunForm";
-
 export default async function Home() {
   // Read the backend URL from the environment variable
   const api = process.env.NEXT_PUBLIC_API_URL!;
 
-  let data: any = { runs: [] };
-  try {
-    const res = await fetch(api + "/runs", { cache: "no-store" });
-    if (!res.ok) throw new Error(`API ${res.status}`);
-    data = await res.json();
-  } catch (err) {
-    console.error("Error fetching runs:", err);
-  }
+  // Fetch the runs list from the backend API
+  const res = await fetch(api + "/runs", { cache: "no-store" });
+  const data = await res.json();
 
   return (
     <main style={{ padding: 24, maxWidth: 640, margin: "0 auto" }}>
       <h1>Smart API Playground</h1>
 
       {/* Form to add a new run */}
-      <RunForm api={api} />
+      <form action={api + "/runs"} method="post" style={{ marginBottom: 24 }}>
+        <input
+          name="note"
+          placeholder="note"
+          style={{ marginRight: 8, padding: 4 }}
+        />
+        <button formMethod="post" style={{ padding: "4px 8px" }}>
+          Add Run
+        </button>
+      </form>
 
       {/* Display the runs list */}
       <h2>Run History</h2>
       {data.runs && data.runs.length > 0 ? (
         <ul>
-          {data.runs.map((run: any) => (
+          {data.runs.map((run: { id: string; created_at: string; note: string }) => (
             <li key={run.id}>
-              {new Date(run.created_at).toLocaleString()} — {run.note ?? "—"}
-              <DeleteButton api={api} runId={run.id} />
+              {new Date(run.created_at).toLocaleString()} — {run.note}
             </li>
           ))}
         </ul>
