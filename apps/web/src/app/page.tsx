@@ -1,52 +1,35 @@
-// apps/web/src/app/page.tsx
-
-type Run = {
-  id: number;
-  created_at: string;        // ISO timestamp from API
-  note: string | null;
-};
-
-type RunsResponse = {
-  runs: Run[];
-};
-
 // The page component is async so we can fetch data server-side
-export default async function Home() {
-  const api = process.env.NEXT_PUBLIC_API_URL;
-  if (!api) {
-    throw new Error("NEXT_PUBLIC_API_URL is not set");
-  }
+import DeleteButton from "./DeleteButton";
+import RunForm from "./RunForm";
 
-  // Fetch the runs list from the backend API
-  const res = await fetch(`${api}/runs`, { cache: "no-store" });
-  if (!res.ok) {
-    throw new Error(`Failed to load runs: ${res.status}`);
+export default async function Home() {
+  // Read the backend URL from the environment variable
+  const api = process.env.NEXT_PUBLIC_API_URL!;
+
+  let data: any = { runs: [] };
+  try {
+    const res = await fetch(api + "/runs", { cache: "no-store" });
+    if (!res.ok) throw new Error(`API ${res.status}`);
+    data = await res.json();
+  } catch (err) {
+    console.error("Error fetching runs:", err);
   }
-  const data: RunsResponse = await res.json();
 
   return (
     <main style={{ padding: 24, maxWidth: 640, margin: "0 auto" }}>
       <h1>Smart API Playground</h1>
 
       {/* Form to add a new run */}
-      <form action={`${api}/runs`} method="post" style={{ marginBottom: 24 }}>
-        <input
-          name="note"
-          placeholder="note"
-          style={{ marginRight: 8, padding: 4 }}
-        />
-        <button formMethod="post" style={{ padding: "4px 8px" }}>
-          Add Run
-        </button>
-      </form>
+      <RunForm api={api} />
 
       {/* Display the runs list */}
       <h2>Run History</h2>
-      {data.runs?.length ? (
+      {data.runs && data.runs.length > 0 ? (
         <ul>
-          {data.runs.map((run) => (
+          {data.runs.map((run: any) => (
             <li key={run.id}>
               {new Date(run.created_at).toLocaleString()} — {run.note ?? "—"}
+              <DeleteButton api={api} runId={run.id} />
             </li>
           ))}
         </ul>
