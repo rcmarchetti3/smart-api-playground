@@ -11,7 +11,9 @@ const app = express();
  * - By default, allow all (easy for dev).
  * - If ALLOWED_ORIGINS is set (comma-separated), restrict to those.
  */
-const allowedEnv = process.env.ALLOWED_ORIGINS?.split(",").map(s => s.trim()).filter(Boolean) ?? [];
+const allowedEnv =
+  process.env.ALLOWED_ORIGINS?.split(",").map(s => s.trim()).filter(Boolean) ?? [];
+
 if (allowedEnv.length > 0) {
   app.use(
     cors({
@@ -96,20 +98,27 @@ app.post("/runs", async (req, res) => {
 });
 
 /**
- * DELETE /runs/:id — delete a run
+ * DELETE /runs/:id — delete a run (UUID-safe)
  */
 app.delete("/runs/:id", async (req, res) => {
   if (!pool) return res.status(500).json({ ok: false, error: "DB not configured" });
 
-  const id = Number(req.params.id);
-  if (!Number.isFinite(id)) return res.status(400).json({ ok: false, error: "bad id" });
+  const id = (req.params.id ?? "").toString().trim();
+
+  // Accept UUID v1–v5 format
+  const uuidLike =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (!uuidLike.test(id)) {
+    return res.status(400).json({ ok: false, error: "bad id" });
+  }
 
   try {
     const result = await pool.query("delete from runs where id = $1", [id]);
     if (result.rowCount === 0) return res.status(404).json({ ok: false, error: "not found" });
-    res.status(204).end();
+    return res.status(204).end(); // No Content
   } catch (e: any) {
-    res.status(500).json({ ok: false, error: e.message });
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
