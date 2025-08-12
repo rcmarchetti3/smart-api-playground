@@ -1,5 +1,6 @@
 // apps/web/src/app/page.tsx
 import DeleteButton from "./components/DeleteButton";
+import RunForm from "./components/RunForm";
 
 // Types that mirror the API
 type Run = {
@@ -30,19 +31,7 @@ export default async function Home() {
       <h1>Smart API Playground</h1>
 
       {/* Add a run */}
-      <form action={`${api}/runs`} method="post" style={{ marginBottom: 24 }}>
-        <input
-          name="note"
-          placeholder="note"
-          required
-          maxLength={500}
-          data-gramm="false"
-          style={{ marginRight: 8, padding: 4 }}
-        />
-        <button formMethod="post" style={{ padding: "4px 8px" }}>
-          Add Run
-        </button>
-      </form>
+    <RunForm api={api} />
 
       {/* Runs list */}
       <h2>Run History</h2>
