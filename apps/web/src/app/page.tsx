@@ -1,6 +1,7 @@
 // apps/web/src/app/page.tsx
 import DeleteButton from "./components/DeleteButton";
 import RunForm from "./components/RunForm";
+import EditButton from "./components/EditButton";
 
 // Types that mirror the API
 type Run = {
@@ -47,6 +48,7 @@ export default async function Home() {
               <span style={{ flex: 1 }}>
                 {new Date(run.created_at).toLocaleString()} — {run.note}
               </span>
+              <EditButton id={run.id} api={api} currentNote={run.note} />
              <DeleteButton id={run.id} api={api} />
             </li>
           ))}
