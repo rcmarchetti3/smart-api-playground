@@ -28,34 +28,55 @@ export default async function Home() {
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 640, margin: "0 auto" }}>
-      <h1>Smart API Playground</h1>
+    <main className="min-h-screen bg-zinc-950 text-zinc-100">
+      <div className="mx-auto max-w-2xl px-6 py-10">
+        <h1 className="text-3xl font-semibold tracking-tight">Smart API Playground</h1>
 
-      {/* Add a run */}
-    <RunForm api={api} />
+        {/* Add a run */}
+        <section className="mt-6">
+          <RunForm api={api} />
+        </section>
 
-      {/* Runs list */}
-      <h2>Run History</h2>
-      {!data.ok ? (
-        <p style={{ color: "crimson" }}>Failed to load: {data.error}</p>
-      ) : data.runs.length > 0 ? (
-        <ul>
-          {data.runs.map((run: Run) => (
-            <li
-              key={run.id}
-              style={{ display: "flex", alignItems: "center", gap: 8 }}
+        {/* Runs list */}
+        <section className="mt-10">
+          <h2 className="mb-3 text-xl font-medium text-zinc-200">Run History</h2>
+
+          {!data.ok ? (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-900/40 bg-red-950/30 px-4 py-3 text-sm text-red-200"
             >
-              <span style={{ flex: 1 }}>
-                {new Date(run.created_at).toLocaleString()} — {run.note}
-              </span>
-              <EditButton id={run.id} api={api} currentNote={run.note} />
-             <DeleteButton id={run.id} api={api} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No runs yet. Add one above!</p>
-      )}
+              Failed to load: {data.error}
+            </div>
+          ) : data.runs.length > 0 ? (
+            <ul className="divide-y divide-zinc-800/80 rounded-lg border border-zinc-800/60 bg-zinc-900/30">
+              {data.runs.map((run: Run) => (
+                <li
+                  key={run.id}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-900/60"
+                >
+                  <span className="flex-1 text-zinc-200">
+                    <span className="mr-2 font-mono text-zinc-400">
+                      {new Date(run.created_at).toLocaleString()}
+                    </span>
+                    — {run.note}
+                  </span>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2">
+                    <EditButton id={run.id} api={api} currentNote={run.note} />
+                    <DeleteButton id={run.id} api={api} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="rounded-md border border-zinc-800/60 bg-zinc-900/30 px-4 py-3 text-sm text-zinc-300">
+              No runs yet. Add one above!
+            </p>
+          )}
+        </section>
+      </div>
     </main>
   );
 }
