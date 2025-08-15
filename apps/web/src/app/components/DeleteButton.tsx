@@ -1,18 +1,32 @@
-// apps/web/src/app/components/DeleteButton.tsx
 "use client";
+import { useRouter } from "next/navigation";
 
-type DeleteButtonProps = { onDelete: () => void; disabled?: boolean };
+export type DeleteButtonProps = {
+  id: string;           // <- keep 'id'
+  api: string;
+  onOptimisticDelete?: (id: string) => void; // optional, if you added optimistic UI
+};
 
-export default function DeleteButton({ onDelete, disabled }: DeleteButtonProps) {
+export default function DeleteButton({ id, api, onOptimisticDelete }: DeleteButtonProps) {
+  const router = useRouter();
+
+  async function onDelete() {
+    if (!confirm("Delete this run?")) return;
+
+    // (Optional) optimistic
+    onOptimisticDelete?.(id);
+
+    const res = await fetch(`${api}/runs/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      alert(`Delete failed (${res.status}) ${await res.text().catch(() => "")}`);
+      router.refresh(); // rollback if needed
+      return;
+    }
+    router.refresh();
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onDelete}
-      disabled={disabled}
-      aria-label="Delete run"
-      className="rounded-md bg-zinc-700 px-2 py-1 text-sm font-medium text-white transition-colors hover:bg-zinc-600 disabled:opacity-50"
-      title="Delete"
-    >
+    <button type="button" onClick={onDelete} aria-label={`Delete run ${id}`}>
       🗑️
     </button>
   );
