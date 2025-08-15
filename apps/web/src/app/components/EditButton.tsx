@@ -1,39 +1,46 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
-export default function EditButton({ id, api, currentNote }: { id: number; api: string; currentNote: string }) {
+type EditButtonProps = {
+  id: string;
+  currentNote: string;
+  onEdit: (id: string, nextNote: string) => void | Promise<void>;
+};
+
+export default function EditButton({ id, currentNote, onEdit }: EditButtonProps) {
   const [editing, setEditing] = useState(false);
   const [note, setNote] = useState(currentNote);
-  const router = useRouter();
 
-  async function onSave() {
-    const res = await fetch(`${api}/runs/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note }),
-    });
-    if (!res.ok) {
-      const msg = await res.text().catch(() => "");
-      alert(`Edit failed (${res.status}) ${msg}`);
-      return;
-    }
+  const start = () => {
+    setNote(currentNote);
+    setEditing(true);
+  };
+
+  const save = () => {
+    // fire & forget (don’t wait for network)
+    onEdit(id, note);
     setEditing(false);
-    router.refresh();
-  }
+  };
+
+  const cancel = () => setEditing(false);
 
   return editing ? (
-    <span>
+    <div className="flex items-center gap-1">
       <input
+        className="rounded bg-zinc-800 px-2 py-1 text-sm"
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        maxLength={500}
-        style={{ marginRight: 8 }}
       />
-      <button onClick={onSave}>💾</button>
-      <button onClick={() => setEditing(false)}>❌</button>
-    </span>
+      <button className="rounded bg-emerald-600 px-2 py-1 text-sm" onClick={save} aria-label="Save">
+        💾
+      </button>
+      <button className="rounded bg-zinc-700 px-2 py-1 text-sm" onClick={cancel} aria-label="Cancel">
+        ✖
+      </button>
+    </div>
   ) : (
-    <button onClick={() => setEditing(true)}>✏️</button>
+    <button className="rounded px-2 py-1 text-sm hover:bg-zinc-800" onClick={start} aria-label="Edit">
+      ✏️
+    </button>
   );
 }
