@@ -1,27 +1,18 @@
+// apps/web/src/app/components/DeleteButton.tsx
 "use client";
-import { useRouter } from "next/navigation";
 
-type DeleteButtonProps = {
-  id: number; // change from string to number
-  api: string;
-};
+type DeleteButtonProps = { onDelete: () => void; disabled?: boolean };
 
-export default function DeleteButton({ id, api }: DeleteButtonProps) {
-  const router = useRouter();
-
-  async function onDelete() {
-    if (!confirm("Delete this run?")) return;
-    const res = await fetch(`${api}/runs/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      const msg = await res.text().catch(() => "");
-      alert(`Delete failed (${res.status}) ${msg}`);
-      return;
-    }
-    router.refresh();
-  }
-
+export default function DeleteButton({ onDelete, disabled }: DeleteButtonProps) {
   return (
-    <button type="button" onClick={onDelete} aria-label={`Delete run ${id}`}>
+    <button
+      type="button"
+      onClick={onDelete}
+      disabled={disabled}
+      aria-label="Delete run"
+      className="rounded-md bg-zinc-700 px-2 py-1 text-sm font-medium text-white transition-colors hover:bg-zinc-600 disabled:opacity-50"
+      title="Delete"
+    >
       🗑️
     </button>
   );

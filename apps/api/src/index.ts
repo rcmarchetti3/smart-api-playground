@@ -19,7 +19,7 @@ if (allowedEnv.length > 0) {
         if (!origin || allowedEnv.includes(origin)) return cb(null, true);
         cb(new Error("Not allowed by CORS"));
       },
-      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS", "HEAD"],
     })
   );
 } else {
