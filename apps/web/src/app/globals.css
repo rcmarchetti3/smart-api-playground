@@ -1,5 +1,6 @@
-/* apps/web/src/app/globals.css */
 @import "tailwindcss";
+@config "../../tailwind.config.js";
 
-/* (Optional) Your own globals */
+/* Optional: smooth color transitions */
 :root { color-scheme: light dark; }
+* { transition: background-color .15s ease, color .15s ease, border-color .15s ease; }
