@@ -1,5 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import ThemeToggle from "./components/ThemeToggle";
+
 
 export const metadata: Metadata = { title: "Smart API Playground" };
 
@@ -32,7 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Helps native UI reflect both schemes */}
         <meta name="color-scheme" content="light dark" />
       </head>
+      
       <body className="min-h-screen bg-zinc-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 antialiased">
+         <ThemeToggle />
         {children}
       </body>
     </html>

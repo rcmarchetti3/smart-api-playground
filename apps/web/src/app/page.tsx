@@ -7,6 +7,7 @@ import EditButton from "./components/EditButton";
 import RunForm from "./components/RunForm";
 import { toast } from "sonner";
 
+
 /* Types */
 type Run = { id: string; created_at: string; note: string };
 
@@ -184,13 +185,14 @@ export default function Home() {
             {flatRuns.map((run) => {
               const created = new Date(run.created_at).toLocaleString();
               return (
-                <li
-                  key={run.id}
-                  className="group animate-fade-in rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-zinc-900/80 hover:shadow-md"
-                >
+               <li key={run.id} className="group animate-fade-in rounded-xl border border-zinc-300 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 
+             p-4 shadow-sm transition-all duration-200 
+             hover:-translate-y-0.5 
+             hover:bg-zinc-200/80 dark:hover:bg-zinc-900/80 
+             hover:shadow-md">
                   <div className="flex items-start justify-between gap-3">
                     <span className="flex-1 leading-relaxed">
-                      <time className="mr-2 align-middle text-sm font-medium text-zinc-400">
+                      <time className="mr-2 align-middle text-sm font-medium text-zinc-600 dark:text-zinc-400">
                         {created}
                       </time>
                       <span className="align-middle">{run.note}</span>
