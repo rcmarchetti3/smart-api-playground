@@ -1,36 +1,83 @@
-// apps/web/src/app/page.tsx
 "use client";
 
-import useSWR from "swr";
+import useSWRInfinite from "swr/infinite";
+import { useMemo, useState } from "react";
 import DeleteButton from "./components/DeleteButton";
 import EditButton from "./components/EditButton";
 import RunForm from "./components/RunForm";
-import ThemeToggle from "./components/ThemeToggle";
 import { toast } from "sonner";
 
 /* Types */
-type Run = { id: number | string; created_at: string; note: string };
+type Run = { id: string; created_at: string; note: string };
+
 type RunsOk = { ok: true; runs: Run[] };
 type RunsErr = { ok: false; error: string };
-type RunsResponse = RunsOk | RunsErr;
+type RunsPage = RunsOk | RunsErr;
+
+/* Type guards */
+const isOkPage = (p: RunsPage | undefined | null): p is RunsOk =>
+  !!p && "ok" in p && p.ok === true;
 
 /* Fetcher */
-const fetcher = async (url: string): Promise<RunsResponse> => {
-  const res = await fetch(url);
+const fetcher = async (url: string): Promise<RunsPage> => {
+  const res = await fetch(url, { cache: "no-store" });
   return res.json();
 };
 
+const PAGE_SIZE = 20;
+
 export default function Home() {
   const api = process.env.NEXT_PUBLIC_API_URL!;
-  const { data, error, mutate, isLoading } = useSWR<RunsResponse>(`${api}/runs`, fetcher);
+  const [q, setQ] = useState("");
 
-  /* Optimistic add */
-  const handleAdd = async (note: string) => {
-    const temp: Run = { id: Date.now(), created_at: new Date().toISOString(), note };
+  const getKey = (index: number, prev: RunsPage | null) => {
+    // Stop if previous page was ok AND shorter than a full page (no more)
+    if (isOkPage(prev) && prev.runs.length < PAGE_SIZE) return null;
 
-    await mutate((prev) => {
-      if (!prev || !("runs" in prev)) return { ok: true, runs: [temp] } as RunsOk;
-      return { ok: true, runs: [temp, ...prev.runs] } as RunsOk;
+    const params = new URLSearchParams();
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", String(index * PAGE_SIZE));
+    if (q.trim()) params.set("q", q.trim());
+    return `${api}/runs?${params.toString()}`;
+  };
+
+  const {
+    data,
+    error,
+    size,
+    setSize,
+    mutate,
+    isLoading,
+  } = useSWRInfinite<RunsPage>(getKey, fetcher, { revalidateOnFocus: false });
+
+  const pages: RunsPage[] = data ?? [];
+
+  const flatRuns: Run[] = useMemo(() => {
+    const okPages = pages.filter(isOkPage);
+    return okPages.flatMap((p) => p.runs);
+  }, [pages]);
+
+  const isEmpty = flatRuns.length === 0 && !isLoading && !error;
+
+  // Compute “has more” from the last page length (without any casts)
+  const lastPage = pages.length > 0 ? pages[pages.length - 1] : undefined;
+  const lastLen = isOkPage(lastPage) ? lastPage.runs.length : 0;
+  const hasMore = lastLen === PAGE_SIZE;
+
+  /* -------- Optimistic handlers (work across pages) -------- */
+  async function handleAdd(note: string) {
+    const optimistic: Run = {
+      id: `temp-${Date.now()}`,
+      created_at: new Date().toISOString(),
+      note,
+    };
+
+    await mutate((prev?: RunsPage[]) => {
+      if (!prev || prev.length === 0) return [{ ok: true, runs: [optimistic] } satisfies RunsOk];
+      const first = prev[0];
+      if (!isOkPage(first)) return prev;
+      const updatedFirst: RunsOk = { ok: true, runs: [optimistic, ...first.runs] };
+      return [updatedFirst, ...prev.slice(1)];
     }, false);
 
     try {
@@ -39,134 +86,149 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note }),
       });
-      if (!res.ok) throw new Error("add failed");
+      if (!res.ok) throw new Error();
       toast.success("Run added");
-      await mutate();
+      await mutate(); // revalidate all pages
     } catch {
       toast.error("Failed to add");
       await mutate();
     }
-  };
+  }
 
-  /* Optimistic edit */
-  const handleEdit = async (id: string, nextNote: string) => {
-    const key = String(id);
-
-    await mutate((prev) => {
-      if (!prev || !("runs" in prev)) return prev;
-      return {
-        ok: true,
-        runs: prev.runs.map((r) => (String(r.id) === key ? { ...r, note: nextNote } : r)),
-      } as RunsOk;
+  async function handleEdit(id: string, nextNote: string) {
+    await mutate((prev?: RunsPage[]) => {
+      if (!prev) return prev;
+      return prev.map((page) =>
+        isOkPage(page)
+          ? ({ ok: true, runs: page.runs.map((r) => (r.id === id ? { ...r, note: nextNote } : r)) } as RunsOk)
+          : page
+      );
     }, false);
 
     try {
-      const res = await fetch(`${api}/runs/${key}`, {
+      const res = await fetch(`${api}/runs/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ note: nextNote }),
       });
-      if (!res.ok) throw new Error("edit failed");
+      if (!res.ok) throw new Error();
       await mutate();
     } catch {
+      toast.error("Failed to save edit");
       await mutate();
     }
-  };
+  }
 
-  /* Optimistic delete */
-  const handleDelete = async (id: string) => {
-    const key = String(id);
-
-    await mutate((prev) => {
-      if (!prev || !("runs" in prev)) return prev;
-      return { ok: true, runs: prev.runs.filter((r) => String(r.id) !== key) } as RunsOk;
+  async function handleDelete(id: string) {
+    await mutate((prev?: RunsPage[]) => {
+      if (!prev) return prev;
+      return prev.map((page) =>
+        isOkPage(page)
+          ? ({ ok: true, runs: page.runs.filter((r) => r.id !== id) } as RunsOk)
+          : page
+      );
     }, false);
 
     try {
-      const res = await fetch(`${api}/runs/${key}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("delete failed");
+      const res = await fetch(`${api}/runs/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
       await mutate();
     } catch {
+      toast.error("Failed to delete");
       await mutate();
     }
-  };
+  }
 
-  if (error) return <p className="text-red-500">Failed to load</p>;
-  if (isLoading || !data) return <p className="text-zinc-500">Loading...</p>;
-
-  const runs = "runs" in data ? data.runs : [];
+  /* ----------------- UI ----------------- */
+  if (error) return <p className="text-red-400">Failed to load</p>;
 
   return (
     <main className="container mx-auto max-w-2xl p-6">
-      <ThemeToggle />
+      <h1 className="text-3xl font-bold text-emerald-400">Smart API Playground</h1>
 
-      <h1 className="text-3xl font-bold text-emerald-500">Smart API Playground</h1>
+      {/* Search */}
+      <div className="mt-4 flex gap-2">
+        <input
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            // reset to first page when search changes
+            setSize(1);
+            mutate(); // optional nudge; SWR usually refetches because key changed
+          }}
+          placeholder="Search notes…"
+          className="w-full rounded-lg border border-zinc-300 bg-white/80 px-3 py-2 text-zinc-900 placeholder-zinc-500 outline-none transition
+                     focus:ring-2 focus:ring-emerald-400
+                     dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-100 dark:placeholder-zinc-500"
+        />
+      </div>
 
+      {/* Add a run */}
       <RunForm onAdd={handleAdd} />
 
       <h2 className="mt-8 text-xl font-semibold">Run History</h2>
 
-      {runs.length === 0 ? (
-        <div
-          className="
-            mt-6 rounded-2xl border p-10 text-center
-            border-zinc-200 bg-white
-            dark:border-zinc-800 dark:bg-zinc-900/40
-          "
-        >
-          <div
-            className="
-              mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border
-              border-zinc-200 bg-zinc-50
-              dark:border-zinc-800 dark:bg-zinc-900/60
-            "
-          >
+      {isLoading && pages.length === 0 ? (
+        <p className="text-zinc-400 mt-4">Loading…</p>
+      ) : isEmpty ? (
+        <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-10 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60">
             <span className="text-2xl">📝</span>
           </div>
-          <p className="font-medium text-zinc-700 dark:text-zinc-300">No runs yet</p>
-          <p className="mt-1 text-sm text-zinc-500">Add your first run with the form above.</p>
+          <p className="text-zinc-300 font-medium">No runs yet</p>
+          <p className="text-zinc-500 text-sm mt-1">Add your first run with the form above.</p>
         </div>
       ) : (
-        <ul className="mt-4 space-y-3">
-          {runs.map((run) => {
-            const created = new Date(run.created_at).toLocaleString();
-            return (
-              <li
-                key={String(run.id)}
-                className="
-                  group animate-fade-in rounded-xl border p-4 shadow-sm transition-all duration-200
-                  border-zinc-200 bg-white hover:-translate-y-0.5 hover:bg-zinc-50 hover:shadow-md
-                  dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:bg-zinc-900/80
-                "
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span className="flex-1 leading-relaxed">
-                    <time className="mr-2 align-middle text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                      {created}
-                    </time>
-                    <span className="align-middle text-zinc-900 dark:text-zinc-100">{run.note}</span>
-                  </span>
+        <>
+          <ul className="mt-4 space-y-3">
+            {flatRuns.map((run) => {
+              const created = new Date(run.created_at).toLocaleString();
+              return (
+                <li
+                  key={run.id}
+                  className="group animate-fade-in rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:bg-zinc-900/80 hover:shadow-md"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="flex-1 leading-relaxed">
+                      <time className="mr-2 align-middle text-sm font-medium text-zinc-400">
+                        {created}
+                      </time>
+                      <span className="align-middle">{run.note}</span>
+                    </span>
 
-                  <div className="flex gap-1 opacity-70 transition-opacity duration-150 group-hover:opacity-100">
-                    <EditButton
-                      id={String(run.id)}
-                      api={api}
-                      currentNote={run.note}
-                      onEdit={(next) => handleEdit(String(run.id), next)}
-                      disabled={false}
-                    />
-                    <DeleteButton
-                      id={String(run.id)}
-                      api={api}
-                      onDelete={() => handleDelete(String(run.id))}
-                      disabled={false}
-                    />
+                    <div className="flex gap-1 opacity-70 transition-opacity duration-150 group-hover:opacity-100">
+                      <EditButton
+                        id={run.id}
+                        api={api}
+                        currentNote={run.note}
+                        onEdit={(next) => handleEdit(run.id, next)}
+                      />
+                      <DeleteButton
+                        id={run.id}
+                        api={api}
+                        onDelete={() => handleDelete(run.id)}
+                      />
+                    </div>
                   </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Load more */}
+          <div className="mt-6 flex justify-center">
+            {hasMore ? (
+              <button
+                onClick={() => setSize(size + 1)}
+                className="rounded-lg border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800"
+              >
+                Load more
+              </button>
+            ) : (
+              <p className="text-zinc-500 text-sm">No more runs</p>
+            )}
+          </div>
+        </>
       )}
     </main>
   );
