@@ -172,13 +172,27 @@ export default function Home() {
       {isLoading && pages.length === 0 ? (
         <p className="text-zinc-400 mt-4">Loading…</p>
       ) : isEmpty ? (
-        <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-10 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-800 bg-zinc-900/60">
-            <span className="text-2xl">📝</span>
-          </div>
-          <p className="text-zinc-300 font-medium">No runs yet</p>
-          <p className="text-zinc-500 text-sm mt-1">Add your first run with the form above.</p>
-        </div>
+        <div
+  className="
+    mt-6 rounded-2xl border 
+    border-zinc-300 bg-zinc-50 p-10 text-center
+    dark:border-zinc-800 dark:bg-zinc-900/40
+  "
+>
+  <div
+    className="
+      mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full
+      border border-zinc-300 bg-zinc-100
+      dark:border-zinc-800 dark:bg-zinc-900/60
+    "
+  >
+    <span className="text-2xl">📝</span>
+  </div>
+  <p className="text-zinc-700 font-medium dark:text-zinc-300">No runs yet</p>
+  <p className="text-zinc-500 text-sm mt-1 dark:text-zinc-500">
+    Add your first run with the form above.
+  </p>
+</div>
       ) : (
         <>
           <ul className="mt-4 space-y-3">
@@ -201,7 +215,6 @@ export default function Home() {
                     <div className="flex gap-1 opacity-70 transition-opacity duration-150 group-hover:opacity-100">
                       <EditButton
                         id={run.id}
-                        api={api}
                         currentNote={run.note}
                         onEdit={(next) => handleEdit(run.id, next)}
                       />

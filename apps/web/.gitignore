@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Environment files (ignore but keep examples tracked)
+.env
+.env.local
+apps/*/.env
+apps/*/.env.local
+!.env.example
+!apps/*/.env.example
