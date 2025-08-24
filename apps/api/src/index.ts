@@ -4,6 +4,7 @@ import express from "express";
 import cors from "cors";
 import { Pool } from "pg";
 import { z } from "zod";
+import { CreateRunSchema, PatchRunSchema, RunsQuerySchema, IdParamSchema, NoteSchema } from "/shared/schemas";
 
 const app = express();
 
@@ -69,55 +70,55 @@ app.get("/ping", async (_req, res) => {
   }
 });
 
-/** ---------------- GET /runs (pagination + search) ---------------- */
+// GET /runs — with limit/offset/q validation
 app.get("/runs", async (req, res) => {
   if (!pool) return res.status(500).json({ ok: false, error: "DB not configured" });
 
-  const parsed = QuerySchema.safeParse(req.query);
+  const parsed = RunsQuerySchema.safeParse(req.query);
   if (!parsed.success) {
-    return res.status(400).json({ ok: false, error: parsed.error.issues[0]?.message ?? "bad query" });
+    return res.status(400).json({ ok: false, error: parsed.error.issues.map(i => i.message).join(", ") });
   }
-
   const { limit, offset, q } = parsed.data;
 
   try {
     if (q) {
       const result = await pool.query(
         `select id, created_at, note
-           from runs
-          where note ilike $1
-          order by created_at desc
-          limit $2 offset $3`,
+         from runs
+         where note ilike $1
+         order by created_at desc
+         limit $2 offset $3`,
         [`%${q}%`, limit, offset]
       );
       return res.json({ ok: true, runs: result.rows });
     } else {
       const result = await pool.query(
         `select id, created_at, note
-           from runs
-          order by created_at desc
-          limit $1 offset $2`,
+         from runs
+         order by created_at desc
+         limit $1 offset $2`,
         [limit, offset]
       );
       return res.json({ ok: true, runs: result.rows });
     }
   } catch (e: any) {
-    res.status(500).json({ ok: false, error: e.message });
+    return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
-/** ---------------- POST /runs ---------------- */
+
+
+// POST /runs
 app.post("/runs", async (req, res) => {
   if (!pool) return res.status(500).json({ ok: false, error: "DB not configured" });
 
-  const parsed = NoteSchema.safeParse(req.body);
+  const parsed = CreateRunSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ ok: false, error: parsed.error.issues[0]?.message ?? "invalid body" });
+    return res.status(400).json({ ok: false, error: parsed.error.issues[0].message });
   }
 
-  const { note } = parsed.data;
-
   try {
+    const { note } = parsed.data;
     const result = await pool.query(
       "insert into runs (note) values ($1) returning id, created_at, note",
       [note]
@@ -128,22 +129,27 @@ app.post("/runs", async (req, res) => {
   }
 });
 
-/** ---------------- PATCH /runs/:id ---------------- */
+
+// PATCH /runs/:id
 app.patch("/runs/:id", async (req, res) => {
   if (!pool) return res.status(500).json({ ok: false, error: "DB not configured" });
 
-  const idRaw = (req.params.id ?? "").toString().trim();
-  if (!isUuid(idRaw)) return res.status(400).json({ ok: false, error: "bad id" });
+  const idOk = IdParamSchema.safeParse(req.params.id);
+  if (!idOk.success) return res.status(400).json({ ok: false, error: "bad id" });
 
-  const parsed = NoteSchema.safeParse(req.body);
+  const parsed = PatchRunSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ ok: false, error: parsed.error.issues[0]?.message ?? "invalid body" });
+    return res.status(400).json({ ok: false, error: parsed.error.issues[0].message });
   }
+
+  const raw = idOk.data;
+  const cast = /^\d+$/.test(raw) ? "::int" : "::uuid";
+  const idValue = /^\d+$/.test(raw) ? Number(raw) : raw;
 
   try {
     const result = await pool.query(
-      "update runs set note = $1 where id = $2 returning id, created_at, note",
-      [parsed.data.note, idRaw]
+      `update runs set note = $1 where id = $2${cast} returning id, created_at, note`,
+      [parsed.data.note, idValue]
     );
     if (result.rowCount === 0) return res.status(404).json({ ok: false, error: "not found" });
     res.json({ ok: true, run: result.rows[0] });
@@ -151,7 +157,6 @@ app.patch("/runs/:id", async (req, res) => {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
-
 /** ---------------- DELETE /runs/:id ---------------- */
 app.delete("/runs/:id", async (req, res) => {
   if (!pool) return res.status(500).json({ ok: false, error: "DB not configured" });
