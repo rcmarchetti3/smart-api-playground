@@ -4,10 +4,9 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "lint": "echo \"add eslint if you want\""
+    "start": "node -r tsconfig-paths/register dist/index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -22,6 +21,7 @@
     "@types/node": "^20.11.30",
     "@types/pg": "^8.15.5",
     "ts-node-dev": "^2.0.0",
+    "tsconfig-paths": "^4.2.0",
     "typescript": "^5.4.5"
   }
 }

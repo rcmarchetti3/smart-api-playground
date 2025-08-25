@@ -1,31 +1,93 @@
+# Smart API Playground
 
-# Day 1 Backend Starter (Express + TypeScript + Postgres)
+A full-stack web application built in short daily sessions with ChatGPT as my coding partner.  
+The app demonstrates modern web development practices with CRUD, search, pagination, theming, and shared validation.
 
-This is a minimal API you can run locally and deploy to Render. It has a `/ping` route that checks DB connectivity if `DATABASE_URL` is set.
+---
 
-## Local dev
+## 🚀 Features
 
+- **CRUD Operations** for notes ("runs")
+- **Search & Pagination** in run history
+- **Optimistic UI** with SWR for instant feedback
+- **Light/Dark Theme Toggle** (syncs with system preferences)
+- **Zod Validation** shared between API and frontend
+- **Toast Notifications** for user actions
+- **Responsive UI** styled with Tailwind v4
+
+---
+
+## 🛠️ Tech Stack
+
+**Backend**
+- Node.js + Express + TypeScript
+- PostgreSQL (hosted on Render)
+- Zod for validation
+
+**Frontend**
+- Next.js 15 + TypeScript
+- Tailwind CSS v4
+- SWR for data fetching
+- Sonner for toasts
+- next-themes for theming
+
+**Hosting**
+- Backend: Render
+- Frontend: Vercel
+
+**Monorepo Setup**
+- `apps/api` → backend
+- `apps/web` → frontend
+- `packages/shared` → Zod schemas + types
+
+---
+
+## 📸 Screenshots
+
+> Add screenshots of your app UI here (light mode, dark mode, run history, etc.)
+
+Example:
+
+![Run history list in dark mode](./docs/screenshots/run-history-dark.png)
+![Form and light mode theme](./docs/screenshots/form-light.png)
+
+---
+
+## 🌍 Live Demo
+
+- **Frontend:** [https://your-vercel-app.vercel.app](https://your-vercel-app.vercel.app)  
+- **Backend API:** [https://your-render-api.onrender.com](https://your-render-api.onrender.com)
+
+---
+
+## 🏗️ Setup
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL
+- npm / yarn / pnpm
+
+### Installation
 ```bash
-cd apps/api
-cp .env.example .env
-# paste your Render Postgres External Connection string into .env
+# Clone the repo
+git clone https://github.com/your-username/smart-api-playground.git
+cd smart-api-playground
+
+# Install dependencies
 npm install
-npm run dev
-# open http://localhost:4000/ping
 ```
 
-## Deploy to Render
+### Configure Environment
+```bash
+# apps/api/.env
+DATABASE_URL=your_postgres_connection_string
+ALLOWED_ORIGINS=http://localhost:3000,https://your-vercel-app.vercel.app
 
-- Build command: `npm install && npm run build`
-- Start command: `npm start`
-- Root directory: `apps/api`
-- Env vars:
-  - `DATABASE_URL` = your Render Postgres External Connection string (keep `sslmode=require`)
+# apps/web/.env.local
+NEXT_PUBLIC_API_URL=https://your-render-api.onrender.com
+```
 
-## Optional: initialize table
-
-In Render → your Postgres → **PSQL Shell**
-
+### Database Setup
 ```sql
 create extension if not exists pgcrypto;
 create table if not exists runs (
@@ -35,20 +97,34 @@ create table if not exists runs (
 );
 ```
 
-## Next steps (Day 1 Frontend)
+### Run locally
+```bash
+# Start backend
+cd apps/api
+npm run dev
 
-Create a Next.js app in a sibling folder `apps/web` and point it at this API:
-
-```env
-# apps/web/.env.local
-NEXT_PUBLIC_API_URL=http://localhost:4000
+# Start frontend
+cd apps/web
+npm run dev
 ```
 
-In your Next.js page:
+---
 
-```tsx
-const api = process.env.NEXT_PUBLIC_API_URL;
-const res = await fetch(api + "/ping", { cache: "no-store" });
-```
+## 📖 Development Log
 
-Deploy frontend to Vercel with the same env var set to your Render API URL.
+This project was built incrementally in daily ~1 hour sessions.  
+You can read the full **build log** in [Notion](#) (coming soon).
+
+Highlights:
+- **Day 1-2:** Backend API + frontend deployment
+- **Day 3-4:** Delete & Edit functionality
+- **Day 5-6:** Tailwind polish + optimistic updates
+- **Day 7-8:** Theming + Search + Pagination
+- **Day 9:** Shared Zod schemas + monorepo aliasing
+
+---
+
+## 🧑‍💻 Author
+
+**Richard Marchetti**  
+Solutions Architect | AI tinkerer | Indie dev at night  
