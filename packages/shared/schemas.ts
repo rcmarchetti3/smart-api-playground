@@ -1,13 +1,15 @@
+// packages/shared/schemas.ts
 import { z } from "zod";
 
-// Shared rules
-export const NoteSchema = z
+/** ---------- Primitives ---------- */
+export const Note = z
   .string()
   .trim()
   .min(1, "Note is required")
   .max(500, "Note must be ≤ 500 characters");
 
-export const IdParamSchema = z
+/** UUID or integer id (as string) */
+export const IdParam = z
   .string()
   .trim()
   .refine(
@@ -17,19 +19,25 @@ export const IdParamSchema = z
     "Bad id"
   );
 
+/** ---------- Route Schemas ---------- */
 export const RunsQuerySchema = z.object({
-  limit: z
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+  q: z
     .string()
-    .default("20")
-    .transform((s) => Number(s))
-    .pipe(z.number().int().min(1).max(100)),
-  offset: z
-    .string()
-    .default("0")
-    .transform((s) => Number(s))
-    .pipe(z.number().int().min(0)),
-  q: z.string().trim().max(200).optional().nullable(),
+    .trim()
+    .transform((v) => (v.length ? v : undefined))
+    .optional(),
 });
 
-export const CreateRunSchema = z.object({ note: NoteSchema });
-export const PatchRunSchema = z.object({ note: NoteSchema });
+export const CreateRunSchema = z.object({ note: Note });
+export const PatchRunSchema = z.object({ note: Note });
+
+/** ---------- Types ---------- */
+export type RunsQuery = z.infer<typeof RunsQuerySchema>;
+export type CreateRunInput = z.infer<typeof CreateRunSchema>;
+export type PatchRunInput = z.infer<typeof PatchRunSchema>;
+
+/** ---------- Legacy aliases (to avoid breaking imports) ---------- */
+export const NoteSchema = Note;
+export const IdParamSchema = IdParam;

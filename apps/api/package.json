@@ -5,15 +5,15 @@
   "type": "commonjs",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/index.ts",
-    "build": "tsc",
-    "start": "node -r tsconfig-paths/register dist/index.js"
+    "build": "tsc -p tsconfig.json",
+    "start": "node -r ts-node/register -r tsconfig-paths/register src/index.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^4.19.2",
     "pg": "^8.11.3",
-    "zod": "^4.0.17"
+    "zod": "^4.1.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

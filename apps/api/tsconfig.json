@@ -1,17 +1,24 @@
 {
   "compilerOptions": {
-    "baseUrl": ".",
     "target": "ES2019",
     "module": "commonjs",
     "moduleResolution": "node",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
+
+    "baseUrl": "../../",
     "paths": {
-      "shared/*": ["../../packages/shared/*"]
-    }
+      "shared/*": ["packages/shared/*"]
+    },
+
+    "rootDirs": ["src", "../../packages/shared"],
+    "outDir": "dist",
+    "types": ["node"]
   },
-  "include": ["src", "../../packages/shared"]
-  // NOTE: do NOT set "rootDir" to src, or you'll get
-  // "is not under 'rootDir'" when importing from packages/shared.
+  "include": [
+    "src/**/*.ts",
+    "../../packages/shared/**/*.ts"
+  ],
+  "exclude": ["dist", "node_modules"]
 }

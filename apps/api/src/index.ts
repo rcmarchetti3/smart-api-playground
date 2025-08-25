@@ -1,7 +1,7 @@
 // apps/api/src/index.ts
 import "dotenv/config";
-import express from "express";
-import cors from "cors";
+import express, { Request, Response, NextFunction } from "express";
+import cors, { CorsOptionsDelegate } from "cors";
 import { Pool } from "pg";
 import { z } from "zod";
 import { CreateRunSchema, PatchRunSchema, RunsQuerySchema, IdParamSchema, NoteSchema } from "shared/schemas";
