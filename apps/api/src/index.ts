@@ -1,14 +1,37 @@
 // apps/api/src/index.ts
 import "dotenv/config";
-import express, { Request, Response, NextFunction } from "express";
-import cors, { CorsOptionsDelegate } from "cors";
+import express from "express";
+import cors from "cors";
 import { Pool } from "pg";
 import { z } from "zod";
-import { CreateRunSchema, PatchRunSchema, RunsQuerySchema, IdParamSchema, NoteSchema } from "shared/schemas";
+
+/* ----------------------------- Zod Schemas ----------------------------- */
+
+const NoteSchema = z.object({
+  note: z.string().trim().min(1, "note is required").max(500, "note too long"),
+});
+
+const RunsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+  q: z.string().trim().max(200).optional(),
+});
+
+// allow UUID v1–v5 or a plain integer id (for older rows)
+const IdParamSchema = z
+  .string()
+  .trim()
+  .refine(
+    (v) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v) ||
+      /^\d+$/.test(v),
+    "bad id"
+  );
+
+/* ------------------------------- App/CORS ------------------------------ */
 
 const app = express();
 
-/** ---------------- CORS ---------------- */
 const allowedEnv =
   process.env.ALLOWED_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
 
@@ -17,46 +40,35 @@ if (allowedEnv.length > 0) {
     cors({
       origin(origin, cb) {
         if (!origin || allowedEnv.includes(origin)) return cb(null, true);
-        cb(new Error("Not allowed by CORS"));
+        return cb(new Error("Not allowed by CORS"));
       },
       methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     })
   );
 } else {
+  // Open CORS in dev by default
   app.use(cors());
 }
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/** ---------------- DB ---------------- */
+/* --------------------------------- DB ---------------------------------- */
+
 const connectionString = process.env.DATABASE_URL;
 let pool: Pool | null = null;
 
 if (connectionString) {
   pool = new Pool({
     connectionString,
-    ssl: { rejectUnauthorized: false },
+    ssl: { rejectUnauthorized: false }, // Render PG requires SSL
   });
 } else {
   console.warn("[api] DATABASE_URL not set — DB routes will 500");
 }
 
-/** ---------------- Schemas ---------------- */
-const QuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  offset: z.coerce.number().int().min(0).default(0),
-  q: z.string().trim().max(200).optional(),
-});
+/* -------------------------------- Routes -------------------------------- */
 
-const uuidLike =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function isUuid(s: string) {
-  return uuidLike.test(s);
-}
-
-/** ---------------- Health ---------------- */
 app.get("/ping", async (_req, res) => {
   try {
     const dbTime = pool ? (await pool.query("select now() as now")).rows[0].now : null;
@@ -66,49 +78,50 @@ app.get("/ping", async (_req, res) => {
   }
 });
 
-// GET /runs — with limit/offset/q validation
+// GET /runs?limit=&offset=&q=
 app.get("/runs", async (req, res) => {
   if (!pool) return res.status(500).json({ ok: false, error: "DB not configured" });
 
   const parsed = RunsQuerySchema.safeParse(req.query);
   if (!parsed.success) {
-    return res.status(400).json({ ok: false, error: parsed.error.issues.map(i => i.message).join(", ") });
+    return res
+      .status(400)
+      .json({ ok: false, error: parsed.error.issues.map((i) => i.message).join(", ") });
   }
+
   const { limit, offset, q } = parsed.data;
 
   try {
     if (q) {
       const result = await pool.query(
         `select id, created_at, note
-         from runs
-         where note ilike $1
-         order by created_at desc
-         limit $2 offset $3`,
+           from runs
+          where note ilike $1
+          order by created_at desc
+          limit $2 offset $3`,
         [`%${q}%`, limit, offset]
       );
       return res.json({ ok: true, runs: result.rows });
-    } else {
-      const result = await pool.query(
-        `select id, created_at, note
-         from runs
-         order by created_at desc
-         limit $1 offset $2`,
-        [limit, offset]
-      );
-      return res.json({ ok: true, runs: result.rows });
     }
+
+    const result = await pool.query(
+      `select id, created_at, note
+         from runs
+        order by created_at desc
+        limit $1 offset $2`,
+      [limit, offset]
+    );
+    return res.json({ ok: true, runs: result.rows });
   } catch (e: any) {
     return res.status(500).json({ ok: false, error: e.message });
   }
 });
 
-
-
 // POST /runs
 app.post("/runs", async (req, res) => {
   if (!pool) return res.status(500).json({ ok: false, error: "DB not configured" });
 
-  const parsed = CreateRunSchema.safeParse(req.body);
+  const parsed = NoteSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ ok: false, error: parsed.error.issues[0].message });
   }
@@ -116,7 +129,8 @@ app.post("/runs", async (req, res) => {
   try {
     const { note } = parsed.data;
     const result = await pool.query(
-      "insert into runs (note) values ($1) returning id, created_at, note",
+      `insert into runs (note) values ($1)
+       returning id, created_at, note`,
       [note]
     );
     res.status(201).json({ ok: true, run: result.rows[0] });
@@ -125,7 +139,6 @@ app.post("/runs", async (req, res) => {
   }
 });
 
-
 // PATCH /runs/:id
 app.patch("/runs/:id", async (req, res) => {
   if (!pool) return res.status(500).json({ ok: false, error: "DB not configured" });
@@ -133,19 +146,23 @@ app.patch("/runs/:id", async (req, res) => {
   const idOk = IdParamSchema.safeParse(req.params.id);
   if (!idOk.success) return res.status(400).json({ ok: false, error: "bad id" });
 
-  const parsed = PatchRunSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ ok: false, error: parsed.error.issues[0].message });
+  const bodyOk = NoteSchema.safeParse(req.body);
+  if (!bodyOk.success) {
+    return res.status(400).json({ ok: false, error: bodyOk.error.issues[0].message });
   }
 
   const raw = idOk.data;
-  const cast = /^\d+$/.test(raw) ? "::int" : "::uuid";
-  const idValue = /^\d+$/.test(raw) ? Number(raw) : raw;
+  const isInt = /^\d+$/.test(raw);
+  const cast = isInt ? "::int" : "::uuid";
+  const idValue = isInt ? Number(raw) : raw;
 
   try {
     const result = await pool.query(
-      `update runs set note = $1 where id = $2${cast} returning id, created_at, note`,
-      [parsed.data.note, idValue]
+      `update runs
+          set note = $1
+        where id = $2${cast}
+    returning id, created_at, note`,
+      [bodyOk.data.note, idValue]
     );
     if (result.rowCount === 0) return res.status(404).json({ ok: false, error: "not found" });
     res.json({ ok: true, run: result.rows[0] });
@@ -153,21 +170,29 @@ app.patch("/runs/:id", async (req, res) => {
     res.status(500).json({ ok: false, error: e.message });
   }
 });
-/** ---------------- DELETE /runs/:id ---------------- */
+
+// DELETE /runs/:id
 app.delete("/runs/:id", async (req, res) => {
   if (!pool) return res.status(500).json({ ok: false, error: "DB not configured" });
 
-  const id = (req.params.id ?? "").toString().trim();
-  if (!isUuid(id)) return res.status(400).json({ ok: false, error: "bad id" });
+  const idOk = IdParamSchema.safeParse(req.params.id);
+  if (!idOk.success) return res.status(400).json({ ok: false, error: "bad id" });
+
+  const raw = idOk.data;
+  const isInt = /^\d+$/.test(raw);
+  const cast = isInt ? "::int" : "::uuid";
+  const idValue = isInt ? Number(raw) : raw;
 
   try {
-    const result = await pool.query("delete from runs where id = $1", [id]);
+    const result = await pool.query(`delete from runs where id = $1${cast}`, [idValue]);
     if (result.rowCount === 0) return res.status(404).json({ ok: false, error: "not found" });
     return res.status(204).end();
   } catch (e: any) {
     return res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+/* --------------------------------- Boot -------------------------------- */
 
 const port = process.env.PORT || 4000;
 app.listen(port, () => {
