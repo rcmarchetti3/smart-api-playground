@@ -16,9 +16,6 @@
     "outDir": "dist",
     "types": ["node"]
   },
-  "include": [
-    "src/**/*.ts",
-    "../../packages/shared/**/*.ts"
-  ],
+  "include": ["src/**/*"],
   "exclude": ["dist", "node_modules"]
 }
