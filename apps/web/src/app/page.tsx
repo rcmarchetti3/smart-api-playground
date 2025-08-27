@@ -6,6 +6,7 @@ import DeleteButton from "./components/DeleteButton";
 import EditButton from "./components/EditButton";
 import RunForm from "./components/RunForm";
 import { toast } from "sonner";
+import Card from "./components/Card";
 
 
 /* Types */
@@ -195,40 +196,38 @@ export default function Home() {
 </div>
       ) : (
         <>
-          <ul className="mt-4 space-y-3">
-            {flatRuns.map((run) => {
-              const created = new Date(run.created_at).toLocaleString();
-              return (
-               <li key={run.id} className="group animate-fade-in rounded-xl border border-zinc-300 dark:border-zinc-800 bg-zinc-100/80 dark:bg-zinc-900/60 
-             p-4 shadow-sm transition-all duration-200 
-             hover:-translate-y-0.5 
-             hover:bg-zinc-200/80 dark:hover:bg-zinc-900/80 
-             hover:shadow-md">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="flex-1 leading-relaxed">
-                      <time className="mr-2 align-middle text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                        {created}
-                      </time>
-                      <span className="align-middle">{run.note}</span>
-                    </span>
+         <ul className="mt-4 space-y-3">
+  {flatRuns.map((run) => {
+    const created = new Date(run.created_at).toLocaleString();
+    return (
+      <li key={run.id}>
+        <Card className="group animate-fade-in p-4 transition-all duration-200 hover:-translate-y-0.5">
+          <div className="flex items-start justify-between gap-3">
+            <span className="flex-1 leading-relaxed">
+              <time className="mr-2 align-middle text-sm font-medium text-zinc-600 dark:text-zinc-400">
+                {created}
+              </time>
+              <span className="align-middle">{run.note}</span>
+            </span>
 
-                    <div className="flex gap-1 opacity-70 transition-opacity duration-150 group-hover:opacity-100">
-                      <EditButton
-                        id={run.id}
-                        currentNote={run.note}
-                        onEdit={(next) => handleEdit(run.id, next)}
-                      />
-                      <DeleteButton
-                        id={run.id}
-                        api={api}
-                        onDelete={() => handleDelete(run.id)}
-                      />
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+            <div className="flex gap-1 opacity-70 transition-opacity duration-150 group-hover:opacity-100">
+              <EditButton
+                id={run.id}
+                currentNote={run.note}
+                onEdit={(next) => handleEdit(run.id, next)}
+              />
+              <DeleteButton
+                id={run.id}
+                api={api}
+                onDelete={() => handleDelete(run.id)}
+              />
+            </div>
+          </div>
+        </Card>
+      </li>
+    );
+  })}
+</ul>
 
           {/* Load more */}
           <div className="mt-6 flex justify-center">

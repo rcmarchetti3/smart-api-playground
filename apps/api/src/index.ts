@@ -4,6 +4,9 @@ import express from "express";
 import cors from "cors";
 import { Pool } from "pg";
 import { z } from "zod";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import morgan from "morgan";
 
 /* ----------------------------- Zod Schemas ----------------------------- */
 
@@ -31,22 +34,27 @@ const IdParamSchema = z
 /* ------------------------------- App/CORS ------------------------------ */
 
 const app = express();
+// Security headers
+app.use(helmet());
+// Tiny request logs
+app.use(morgan("tiny"));
 
-const allowedEnv =
-  process.env.ALLOWED_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ?? [];
+const allowedEnv = (process.env.ALLOWED_ORIGINS ?? "")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
 
 if (allowedEnv.length > 0) {
-  app.use(
-    cors({
-      origin(origin, cb) {
-        if (!origin || allowedEnv.includes(origin)) return cb(null, true);
-        return cb(new Error("Not allowed by CORS"));
-      },
-      methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    })
-  );
+  app.use(cors({
+    origin(origin, cb) {
+      if (!origin) return cb(null, true); // allow curl/Postman/no-origin
+      if (allowedEnv.includes(origin)) return cb(null, true);
+      cb(new Error("Not allowed by CORS"));
+    },
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    credentials: false,
+  }));
 } else {
-  // Open CORS in dev by default
   app.use(cors());
 }
 
@@ -191,6 +199,18 @@ app.delete("/runs/:id", async (req, res) => {
     return res.status(500).json({ ok: false, error: e.message });
   }
 });
+
+const writeLimiter = rateLimit({
+  windowMs: 60_000,      // 1 minute
+  max: 30,               // 30 write requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// apply to writes only
+app.post("/runs", writeLimiter);
+app.patch("/runs/:id", writeLimiter);
+app.delete("/runs/:id", writeLimiter);
 
 /* --------------------------------- Boot -------------------------------- */
 
