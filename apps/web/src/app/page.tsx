@@ -7,19 +7,14 @@ import EditButton from "./components/EditButton";
 import RunForm from "./components/RunForm";
 import { toast } from "sonner";
 
-
-/* Types */
 type Run = { id: string; created_at: string; note: string };
-
 type RunsOk = { ok: true; runs: Run[] };
 type RunsErr = { ok: false; error: string };
 type RunsPage = RunsOk | RunsErr;
 
-/* Type guards */
 const isOkPage = (p: RunsPage | undefined | null): p is RunsOk =>
   !!p && "ok" in p && p.ok === true;
 
-/* Fetcher */
 const fetcher = async (url: string): Promise<RunsPage> => {
   const res = await fetch(url, { cache: "no-store" });
   return res.json();
@@ -28,13 +23,13 @@ const fetcher = async (url: string): Promise<RunsPage> => {
 const PAGE_SIZE = 20;
 
 export default function Home() {
-  const api = process.env.NEXT_PUBLIC_API_URL!;
+  const api = process.env.NEXT_PUBLIC_API_URL;
   const [q, setQ] = useState("");
+  const [pending, setPending] = useState(false);   // <-- top-level hook
 
   const getKey = (index: number, prev: RunsPage | null) => {
-    // Stop if previous page was ok AND shorter than a full page (no more)
+    if (!api) return null; // avoid fetching if API URL missing
     if (isOkPage(prev) && prev.runs.length < PAGE_SIZE) return null;
-
     const params = new URLSearchParams();
     params.set("limit", String(PAGE_SIZE));
     params.set("offset", String(index * PAGE_SIZE));
@@ -42,16 +37,14 @@ export default function Home() {
     return `${api}/runs?${params.toString()}`;
   };
 
-  const {
-    data,
-    error,
-    size,
-    setSize,
-    mutate,
-    isLoading,
-  } = useSWRInfinite<RunsPage>(getKey, fetcher, { revalidateOnFocus: false });
+  const { data, error, size, setSize, mutate, isLoading } = useSWRInfinite<RunsPage>(
+    getKey,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 
-  const pages: RunsPage[] = data ?? [];
+  // Avoid the “deps change on every render” warning by memoizing the fallback.
+  const pages: RunsPage[] = useMemo(() => data ?? [], [data]);
 
   const flatRuns: Run[] = useMemo(() => {
     const okPages = pages.filter(isOkPage);
@@ -59,28 +52,14 @@ export default function Home() {
   }, [pages]);
 
   const isEmpty = flatRuns.length === 0 && !isLoading && !error;
-
-  // Compute “has more” from the last page length (without any casts)
   const lastPage = pages.length > 0 ? pages[pages.length - 1] : undefined;
   const lastLen = isOkPage(lastPage) ? lastPage.runs.length : 0;
   const hasMore = lastLen === PAGE_SIZE;
 
-  /* -------- Optimistic handlers (work across pages) -------- */
-  async function handleAdd(note: string) {
-    const optimistic: Run = {
-      id: `temp-${Date.now()}`,
-      created_at: new Date().toISOString(),
-      note,
-    };
-
-    await mutate((prev?: RunsPage[]) => {
-      if (!prev || prev.length === 0) return [{ ok: true, runs: [optimistic] } satisfies RunsOk];
-      const first = prev[0];
-      if (!isOkPage(first)) return prev;
-      const updatedFirst: RunsOk = { ok: true, runs: [optimistic, ...first.runs] };
-      return [updatedFirst, ...prev.slice(1)];
-    }, false);
-
+  /** Add */
+  async function handleAdd(note: string) {           // <-- this WILL be used
+    if (pending) return;
+    setPending(true);
     try {
       const res = await fetch(`${api}/runs`, {
         method: "POST",
@@ -89,20 +68,21 @@ export default function Home() {
       });
       if (!res.ok) throw new Error();
       toast.success("Run added");
-      await mutate(); // revalidate all pages
+      await mutate();
     } catch {
       toast.error("Failed to add");
       await mutate();
+    } finally {
+      setPending(false);
     }
   }
 
+  /** Edit */
   async function handleEdit(id: string, nextNote: string) {
     await mutate((prev?: RunsPage[]) => {
       if (!prev) return prev;
       return prev.map((page) =>
-        isOkPage(page)
-          ? ({ ok: true, runs: page.runs.map((r) => (r.id === id ? { ...r, note: nextNote } : r)) } as RunsOk)
-          : page
+        isOkPage(page) ? ({ ok: true, runs: page.runs.map(r => r.id === id ? { ...r, note: nextNote } : r) } as RunsOk) : page
       );
     }, false);
 
@@ -120,13 +100,12 @@ export default function Home() {
     }
   }
 
+  /** Delete */
   async function handleDelete(id: string) {
     await mutate((prev?: RunsPage[]) => {
       if (!prev) return prev;
       return prev.map((page) =>
-        isOkPage(page)
-          ? ({ ok: true, runs: page.runs.filter((r) => r.id !== id) } as RunsOk)
-          : page
+        isOkPage(page) ? ({ ok: true, runs: page.runs.filter(r => r.id !== id) } as RunsOk) : page
       );
     }, false);
 
@@ -140,8 +119,16 @@ export default function Home() {
     }
   }
 
-  /* ----------------- UI ----------------- */
+  if (!api) {
+    return (
+      <main className="container mx-auto max-w-2xl p-6">
+        <p className="text-red-400">NEXT_PUBLIC_API_URL is not set. Configure it in Vercel project settings.</p>
+      </main>
+    );
+  }
+
   if (error) return <p className="text-red-400">Failed to load</p>;
+
 
   return (
     <main className="container mx-auto max-w-2xl p-6">
@@ -165,7 +152,7 @@ export default function Home() {
       </div>
 
       {/* Add a run */}
-      <RunForm onAdd={handleAdd} />
+      <RunForm onAdd={handleAdd} pending={pending} />
 
       <h2 className="mt-8 text-xl font-semibold">Run History</h2>
 

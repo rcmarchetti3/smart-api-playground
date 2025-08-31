@@ -12,13 +12,35 @@ app.set("trust proxy", 1); // respect X-Forwarded-For behind proxies
 
 /* -------- CORS (conditional) -------- */
 const allowedEnv =
-  process.env.ALLOWED_ORIGINS?.split(",").map(s => s.trim()).filter(Boolean) ?? [];
+  process.env.ALLOWED_ORIGINS?.split(",")
+    .map(s => s.trim())
+    .filter(Boolean) ?? [];
+
+function isOriginAllowed(origin: string | undefined | null): boolean {
+  if (!origin) return true; // non-browser or same-origin
+  if (allowedEnv.length === 0) return true; // allow all if unset
+  // Exact match or simple wildcard patterns like https://*.vercel.app
+  for (const pattern of allowedEnv) {
+    if (pattern === "*") return true;
+    if (!pattern.includes("*")) {
+      if (origin === pattern) return true;
+      continue;
+    }
+    // Convert simple wildcard to regex: escape dots, replace * with [^.]+
+    const regexStr = pattern
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\\\*/g, "[^.]+");
+    const re = new RegExp(`^${regexStr}$`);
+    if (re.test(origin)) return true;
+  }
+  return false;
+}
 
 if (allowedEnv.length > 0) {
   app.use(
     cors({
       origin(origin, cb) {
-        if (!origin || allowedEnv.includes(origin)) return cb(null, true);
+        if (isOriginAllowed(origin)) return cb(null, true);
         return cb(new Error("Not allowed by CORS"));
       },
       methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
