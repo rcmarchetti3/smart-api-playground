@@ -75,6 +75,34 @@ const isUuid = (s: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 const isInt = (s: string) => /^\d+$/.test(s);
 
+/* -------- Landing (GET /) -------- */
+app.get("/", (_req, res) => {
+  res.type("html").send(`<!doctype html>
+  <html>
+    <head>
+      <meta charset='utf-8' />
+      <meta name='viewport' content='width=device-width, initial-scale=1' />
+      <title>Smart API Playground — API</title>
+      <style>
+        body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; padding: 24px; line-height: 1.5; }
+        code { background: #f2f2f2; padding: 2px 6px; border-radius: 6px; }
+        a { color: #059669; text-decoration: none; }
+      </style>
+    </head>
+    <body>
+      <h1>Smart API Playground — API</h1>
+      <p>This is the backend API. Try <a href='/ping'><code>/ping</code></a> or <code>/runs</code> endpoints.</p>
+      <ul>
+        <li>GET <code>/ping</code> — health check</li>
+        <li>GET <code>/runs?limit=20&offset=0&q=hello</code> — list runs</li>
+        <li>POST <code>/runs</code> — create run ({ note })</li>
+        <li>PATCH <code>/runs/:id</code> — update note</li>
+        <li>DELETE <code>/runs/:id</code> — delete run</li>
+      </ul>
+    </body>
+  </html>`);
+});
+
 /* -------- Health -------- */
 app.get("/ping", async (_req, res) => {
   try {
