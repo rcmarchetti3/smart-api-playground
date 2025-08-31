@@ -82,6 +82,10 @@ npm install
 # apps/api/.env
 DATABASE_URL=your_postgres_connection_string
 ALLOWED_ORIGINS=http://localhost:3000,https://your-vercel-app.vercel.app
+# Optional: simple IP rate limiting (defaults shown)
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_WINDOW_MS=60000
+RATE_LIMIT_MAX=60
 
 # apps/web/.env.local
 NEXT_PUBLIC_API_URL=https://your-render-api.onrender.com
